@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manga Translator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: #0f0f0f;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 32px;
+            border: 1px solid #2a2a2a;
+        }
+
+        .upload-area {
+            border: 2px dashed #333;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 24px;
+        }
+
+        .upload-area:hover { border-color: #666; background: #222; }
+        .upload-area.dragover { border-color: #fff; background: #222; }
+
+        .upload-area .icon { font-size: 2.5rem; margin-bottom: 12px; }
+        .upload-area p { color: #888; font-size: 0.9rem; }
+        .upload-area .file-count { color: #fff; font-weight: bold; margin-top: 8px; }
+
+        input[type="file"] { display: none; }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        select:focus { outline: none; border-color: #555; }
+
+        .mode-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .mode-card {
+            padding: 16px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .mode-card:hover { border-color: #555; }
+        .mode-card.active { border-color: #fff; background: #222; }
+        .mode-card .mode-icon { font-size: 1.5rem; margin-bottom: 6px; }
+        .mode-card .mode-name { font-size: 0.85rem; font-weight: bold; }
+        .mode-card .mode-desc { font-size: 0.75rem; color: #888; margin-top: 4px; }
+
+        input[type="radio"] { display: none; }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .progress-wrap {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-bar-bg {
+            background: #333;
+            border-radius: 99px;
+            height: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #fff;
+            border-radius: 99px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-msg {
+            text-align: center;
+            color: #888;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📚 Manga Translator</h1>
+    <p class="subtitle">Dịch tự động speech bubbles trong manga/manhwa/manhua</p>
+
+    <div class="card">
+        <form id="uploadForm" action="/translate" method="POST" enctype="multipart/form-data">
+
+            <!-- Upload -->
+            <div class="upload-area" id="uploadArea">
+                <div class="icon">🖼️</div>
+                <p>Kéo thả ảnh vào đây hoặc click để chọn</p>
+                <p style="font-size:0.8rem; margin-top:4px;">Hỗ trợ JPG, PNG — nhiều ảnh cùng lúc</p>
+                <div class="file-count" id="fileCount"></div>
+                <input type="file" id="fileInput" name="files" accept="image/*" multiple>
+            </div>
+
+            <!-- Ngôn ngữ gốc -->
+            <div class="form-group">
+                <label>Ngôn ngữ gốc</label>
+                <select name="src_lang">
+                    {% for code, name in languages.items() %}
+                    <option value="{{ code }}">{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Chọn mode -->
+            <div class="form-group">
+                <label>Chế độ</label>
+                <div class="mode-grid">
+                    <label class="mode-card active" id="mode-translate">
+                        <input type="radio" name="mode" value="translate" checked>
+                        <div class="mode-icon">🤖</div>
+                        <div class="mode-name">Auto Translate</div>
+                        <div class="mode-desc">Detect → OCR → Dịch → Render</div>
+                    </label>
+                    <label class="mode-card" id="mode-erase">
+                        <input type="radio" name="mode" value="erase">
+                        <div class="mode-icon">🗑️</div>
+                        <div class="mode-name">Erase Only</div>
+                        <div class="mode-desc">Chỉ xóa chữ trong bubble</div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn" id="submitBtn">Bắt đầu dịch →</button>
+
+            <!-- Progress -->
+            <div class="progress-wrap" id="progressWrap">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-msg" id="progressMsg">Đang xử lý...</div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileCount = document.getElementById('fileCount');
+    const submitBtn = document.getElementById('submitBtn');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+    const progressMsg = document.getElementById('progressMsg');
+
+    // Click upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    // Drag & drop
+    uploadArea.addEventListener('dragover', e => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        fileInput.files = e.dataTransfer.files;
+        updateFileCount();
+    });
+
+    fileInput.addEventListener('change', updateFileCount);
+
+    function updateFileCount() {
+        const n = fileInput.files.length;
+        fileCount.textContent = n > 0 ? `✅ Đã chọn ${n} ảnh` : '';
+    }
+
+    // Mode selection
+    document.querySelectorAll('.mode-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+        });
+    });
+
+    // Submit
+    document.getElementById('uploadForm').addEventListener('submit', () => {
+        submitBtn.disabled = true;
+        progressWrap.style.display = 'block';
+        progressMsg.textContent = 'Đang xử lý...';
+    });
+
+    // Progress từ server
+    socket.on('progress', data => {
+        if (data.percent !== undefined) {
+            progressBar.style.width = data.percent + '%';
+        }
+        if (data.message) {
+            progressMsg.textContent = data.message;
+        }
+    });
+</script>
+</body>
+</html>

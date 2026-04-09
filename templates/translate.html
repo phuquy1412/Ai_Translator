@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kết quả dịch</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0f0f0f;
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 32px;
+            border-bottom: 1px solid #222;
+            position: sticky;
+            top: 0;
+            background: #0f0f0f;
+            z-index: 100;
+        }
+
+        .header h1 { font-size: 1.2rem; }
+
+        .header-actions { display: flex; gap: 12px; }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover { opacity: 0.8; }
+        .btn-primary { background: #fff; color: #000; }
+        .btn-secondary { background: #222; color: #fff; border: 1px solid #333; }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 24px;
+            padding: 32px;
+        }
+
+        .image-card {
+            background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a2a2a;
+        }
+
+        .image-card-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .image-name { font-size: 0.9rem; color: #aaa; }
+
+        .image-wrap { position: relative; }
+
+        .image-wrap img {
+            width: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* Bubble overlay cho mode edit */
+        .bubble-overlay {
+            position: absolute;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .bubble-overlay:hover { border-color: rgba(255,255,255,0.5); }
+
+        .btn-download-single {
+            padding: 6px 12px;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        /* Edit modal */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.open { display: flex; }
+
+        .modal-card {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 28px;
+            width: 480px;
+            border: 1px solid #333;
+        }
+
+        .modal-card h3 { margin-bottom: 16px; }
+
+        .modal-card label {
+            display: block;
+            color: #888;
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .modal-card textarea {
+            width: 100%;
+            padding: 12px;
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95rem;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 16px;
+        }
+
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        /* Download form ẩn */
+        #downloadForm { display: none; }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>📚 Kết quả dịch — {{ images|length }} ảnh</h1>
+    <div class="header-actions">
+        <a href="/" class="btn btn-secondary">← Dịch thêm</a>
+        <button class="btn btn-primary" onclick="downloadAll()">⬇️ Tải tất cả (ZIP)</button>
+    </div>
+</div>
+
+{% if images %}
+<div class="images-grid">
+    {% for img in images %}
+    {% set img_idx = loop.index %}
+    <div class="image-card">
+        <div class="image-card-header">
+            <span class="image-name">{{ img.name }}</span>
+            <button class="btn-download-single" onclick="downloadSingle('{{ img.name }}', '{{ img.data }}')">
+                ⬇️ Tải về
+            </button>
+        </div>
+        <div class="image-wrap" id="wrap-{{ img_idx }}">
+            <img src="data:image/jpeg;base64,{{ img.data }}"
+                 alt="{{ img.name }}"
+                 id="img-{{ img_idx }}">
+
+            {% if mode == "translate" %}
+            {% for bubble in img.bubbles %}
+            <div class="bubble-overlay"
+                 style="left:{{ bubble.box[0] }}px; top:{{ bubble.box[1] }}px;
+                        width:{{ bubble.box[2] - bubble.box[0] }}px;
+                        height:{{ bubble.box[3] - bubble.box[1] }}px;"
+                 onclick="openEdit({{ img_idx }}, {{ loop.index0 }},
+                                   '{{ bubble.translated }}',
+                                   {{ bubble.box[0] }}, {{ bubble.box[1] }},
+                                   {{ bubble.box[2] }}, {{ bubble.box[3] }})">
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+    <p>Không có ảnh nào được xử lý</p>
+    <a href="/" class="btn btn-primary" style="display:inline-block; margin-top:16px;">← Quay lại</a>
+</div>
+{% endif %}
+
+<!-- Edit Modal -->
+<div class="modal" id="editModal">
+    <div class="modal-card">
+        <h3>✏️ Sửa bản dịch</h3>
+        <label>Bản dịch gốc</label>
+        <textarea id="originalText" readonly style="color:#888;"></textarea>
+        <label>Sửa lại</label>
+        <textarea id="editText"></textarea>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeEdit()">Hủy</button>
+            <button class="btn btn-primary" onclick="applyEdit()">✅ Cập nhật</button>
+        </div>
+    </div>
+</div>
+
+<!-- Download form -->
+<form id="downloadForm" action="/download-zip" method="POST">
+    <input type="hidden" name="images_data" id="imagesData">
+</form>
+
+<script>
+    // Lưu tất cả ảnh + data
+    const allImages = {{ images | tojson }};
+    let currentEdit = null;
+
+    // Scale overlay theo kích thước thực của ảnh
+    function scaleOverlays() {
+        document.querySelectorAll('.image-wrap').forEach((wrap, i) => {
+            const img = wrap.querySelector('img');
+            const overlays = wrap.querySelectorAll('.bubble-overlay');
+            if (!overlays.length) return;
+
+            const scaleX = img.clientWidth / img.naturalWidth;
+            const scaleY = img.clientHeight / img.naturalHeight;
+
+            overlays.forEach(ov => {
+                const left = parseFloat(ov.getAttribute('data-x1') || ov.style.left);
+                const top = parseFloat(ov.getAttribute('data-y1') || ov.style.top);
+                const w = parseFloat(ov.getAttribute('data-w') || ov.style.width);
+                const h = parseFloat(ov.getAttribute('data-h') || ov.style.height);
+
+                ov.style.left = (left * scaleX) + 'px';
+                ov.style.top = (top * scaleY) + 'px';
+                ov.style.width = (w * scaleX) + 'px';
+                ov.style.height = (h * scaleY) + 'px';
+            });
+        });
+    }
+
+    window.addEventListener('resize', scaleOverlays);
+    window.addEventListener('load', scaleOverlays);
+
+    // Edit bubble
+    function openEdit(imgIdx, bubbleIdx, translated, x1, y1, x2, y2) {
+        currentEdit = { imgIdx, bubbleIdx, x1, y1, x2, y2 };
+        document.getElementById('originalText').value = translated;
+        document.getElementById('editText').value = translated;
+        document.getElementById('editModal').classList.add('open');
+    }
+
+    function closeEdit() {
+        document.getElementById('editModal').classList.remove('open');
+        currentEdit = null;
+    }
+
+    async function applyEdit() {
+        if (!currentEdit) return;
+        const newText = document.getElementById('editText').value.trim();
+        const { imgIdx, x1, y1, x2, y2 } = currentEdit;
+        const imgData = allImages[imgIdx - 1].data;
+
+        // Gửi lên server để re-render
+        const res = await fetch('/rerender', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imgData, x1, y1, x2, y2, text: newText })
+        });
+
+        const data = await res.json();
+
+        // Cập nhật ảnh
+        const imgEl = document.getElementById(`img-${imgIdx}`);
+        imgEl.src = 'data:image/jpeg;base64,' + data.image;
+        allImages[imgIdx - 1].data = data.image;
+
+        closeEdit();
+    }
+
+    // Download 1 ảnh
+    function downloadSingle(name, data) {
+        const link = document.createElement('a');
+        link.href = 'data:image/jpeg;base64,' + data;
+        link.download = name + '_translated.jpg';
+        link.click();
+    }
+
+    // Download tất cả ZIP
+    function downloadAll() {
+        document.getElementById('imagesData').value = JSON.stringify(allImages);
+        document.getElementById('downloadForm').submit();
+    }
+</script>
+</body>
+</html>
