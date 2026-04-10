@@ -3,7 +3,7 @@ from ultralytics import YOLO
 
 _model_cache = {}
 
-def detect_bubbles(image, model_path="model/model.pt"):
+def detect_bubbles(image, model_path="model/comic.pt"):
     """
     Detect speech bubbles trong ảnh manga.
     
