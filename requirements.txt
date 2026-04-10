@@ -1,0 +1,23 @@
+# Web
+Flask
+Flask-SocketIO
+python-socketio
+python-engineio
+Werkzeug
+
+# AI & Image
+ultralytics
+opencv-python
+pillow
+
+# Data Processing
+numpy<2.1.0
+polars
+scipy
+matplotlib
+
+# Utilities
+requests
+PyYAML
+psutil
+bidict

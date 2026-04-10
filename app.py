@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, send_file
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 import cv2
 import numpy as np
 import base64
@@ -16,15 +16,16 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 LANGUAGES = {
     "ja": "Japanese (Manga)",
-    "zh": "Chinese (Manhua)", 
+    "zh": "Chinese (Manhua)",
     "ko": "Korean (Manhwa)",
     "en": "English (Comic)"
 }
 
 MODES = {
     "translate": "Auto Translate 🤖",
-    "erase": "Erase Only 🗑️",
+    "erase":     "Erase Only 🗑️",
 }
+
 
 @app.route("/")
 def home():
@@ -33,52 +34,59 @@ def home():
 
 @app.route("/translate", methods=["POST"])
 def translate():
-    files = request.files.getlist("files")
-    src_lang = request.form.get("src_lang", "ja")
-    mode = request.form.get("mode", "translate")
+    files      = request.files.getlist("files")
+    src_lang   = request.form.get("src_lang", "ja")
+    mode       = request.form.get("mode", "translate")
+    ai_source  = request.form.get("ai_source", "local")       # "local" | "gemini"
+    api_key    = request.form.get("gemini_api_key", "").strip() or None
+    model_name = request.form.get("gemini_model", "").strip() or "gemini-2.5-flash"
 
     if not files or files[0].filename == "":
         return jsonify({"error": "No files"}), 400
 
-    # Đọc tất cả ảnh vào memory
+    # Validate: nếu chọn gemini mà không có key thì báo lỗi
+    if ai_source == "gemini" and not api_key:
+        return jsonify({"error": "Gemini API key is required"}), 400
+
+    # Đọc ảnh vào memory
     images = []
     for file in files:
         file_bytes = np.frombuffer(file.read(), dtype=np.uint8)
         image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         if image is not None:
             images.append({
-                'name': os.path.splitext(file.filename)[0],
+                'name':  os.path.splitext(file.filename)[0],
                 'image': image
             })
 
     if not images:
         return jsonify({"error": "No valid images"}), 400
 
-    # Progress callback
     def on_progress(current, total, message):
         socketio.emit("progress", {
             "current": current,
-            "total": total,
+            "total":   total,
             "message": message,
             "percent": int(current / total * 100)
         })
 
-    # Xử lý tất cả ảnh
     results = process_many(
         images,
         src_lang=src_lang,
         mode=mode,
-        progress_callback=on_progress
+        progress_callback=on_progress,
+        ai_source=ai_source,
+        api_key=api_key,
+        model_name=model_name
     )
 
-    # Encode sang base64
     processed_images = []
     for result in results:
         _, buffer = cv2.imencode(".jpg", result['image'], [cv2.IMWRITE_JPEG_QUALITY, 95])
         encoded = base64.b64encode(buffer.tobytes()).decode("utf-8")
         processed_images.append({
-            "name": result['name'],
-            "data": encoded,
+            "name":    result['name'],
+            "data":    encoded,
             "bubbles": result['bubbles']
         })
 
@@ -86,39 +94,49 @@ def translate():
     return render_template("translate.html", images=processed_images, mode=mode)
 
 
+@app.route("/get-fonts", methods=["GET"])
+def get_fonts():
+    font_dir = os.path.join(app.root_path, "fonts")
+    if not os.path.exists(font_dir):
+        return jsonify([])
+    fonts = [f for f in os.listdir(font_dir) if f.lower().endswith(('.ttf', '.otf'))]
+    return jsonify(fonts)
+
+
 @app.route("/rerender", methods=["POST"])
 def rerender():
-    """
-    Mode 2: User sửa text → render lại bubble đó.
-    Nhận: ảnh gốc + tọa độ bubble + text mới
-    Trả về: ảnh đã cập nhật
-    """
-    data = request.json
+    data       = request.json
     image_data = data.get("image")
-    x1, y1, x2, y2 = data["x1"], data["y1"], data["x2"], data["y2"]
-    new_text = data["text"]
+    coords     = (int(data["x1"]), int(data["y1"]), int(data["x2"]), int(data["y2"]))
+    new_text   = data.get("text")
+    font_name  = data.get("font_name", "ariali.ttf")
+    font_size  = int(data.get("font_size", 20))
+    font_color = data.get("font_color", "#000000")
+    bold       = bool(data.get("bold", False))
+    italic     = bool(data.get("italic", False))
+    align      = data.get("align", "center")
 
-    # Decode ảnh từ base64
-    image_bytes = base64.b64decode(image_data)
+    image_bytes = base64.b64decode(image_data.split(",")[-1])
     nparr = np.frombuffer(image_bytes, dtype=np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img   = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # Xóa chữ cũ + vẽ chữ mới
-    from add_text import xoa_chu_trong_bubble, ve_chu_vao_bubble
-    image = xoa_chu_trong_bubble(image, x1, y1, x2, y2)
-    image = ve_chu_vao_bubble(image, x1, y1, x2, y2, new_text)
+    from editor import BubbleEditor
+    editor = BubbleEditor()
+    result_img = editor.process_render(
+        img, coords, new_text,
+        font_name=font_name, font_size=font_size,
+        font_color=font_color, bold=bold, italic=italic, align=align
+    )
 
-    # Encode lại
-    _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 95])
-    encoded = base64.b64encode(buffer.tobytes()).decode("utf-8")
-
+    _, buffer = cv2.imencode(".jpg", result_img)
+    encoded = base64.b64encode(buffer).decode("utf-8")
     return jsonify({"image": encoded})
 
 
 @app.route("/download-zip", methods=["POST"])
 def download_zip():
-    """Tải tất cả ảnh về dạng ZIP"""
-    images = json.loads(request.form.get("images_data", "[]"))
+    data   = request.get_json()
+    images = data.get("images", [])
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:

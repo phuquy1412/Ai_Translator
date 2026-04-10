@@ -4,161 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kết quả dịch</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            background: #0f0f0f;
-            color: #fff;
-            font-family: 'Segoe UI', sans-serif;
-            min-height: 100vh;
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 32px;
-            border-bottom: 1px solid #222;
-            position: sticky;
-            top: 0;
-            background: #0f0f0f;
-            z-index: 100;
-        }
-
-        .header h1 { font-size: 1.2rem; }
-
-        .header-actions { display: flex; gap: 12px; }
-
-        .btn {
-            padding: 10px 20px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: bold;
-            transition: opacity 0.2s;
-        }
-
-        .btn:hover { opacity: 0.8; }
-        .btn-primary { background: #fff; color: #000; }
-        .btn-secondary { background: #222; color: #fff; border: 1px solid #333; }
-
-        .images-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 24px;
-            padding: 32px;
-        }
-
-        .image-card {
-            background: #1a1a1a;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #2a2a2a;
-        }
-
-        .image-card-header {
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #2a2a2a;
-        }
-
-        .image-name { font-size: 0.9rem; color: #aaa; }
-
-        .image-wrap { position: relative; }
-
-        .image-wrap img {
-            width: 100%;
-            display: block;
-            cursor: crosshair;
-        }
-
-        /* Bubble overlay cho mode edit */
-        .bubble-overlay {
-            position: absolute;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .bubble-overlay:hover { border-color: rgba(255,255,255,0.5); }
-
-        .btn-download-single {
-            padding: 6px 12px;
-            background: #333;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        /* Edit modal */
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 200;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.open { display: flex; }
-
-        .modal-card {
-            background: #1a1a1a;
-            border-radius: 16px;
-            padding: 28px;
-            width: 480px;
-            border: 1px solid #333;
-        }
-
-        .modal-card h3 { margin-bottom: 16px; }
-
-        .modal-card label {
-            display: block;
-            color: #888;
-            font-size: 0.8rem;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-        }
-
-        .modal-card textarea {
-            width: 100%;
-            padding: 12px;
-            background: #222;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 0.95rem;
-            resize: vertical;
-            min-height: 80px;
-            margin-bottom: 16px;
-        }
-
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-
-        /* Download form ẩn */
-        #downloadForm { display: none; }
-
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: #555;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+     <link rel="stylesheet" href="{{ url_for('static', filename='translate.css') }}">
 </head>
 <body>
 
 <div class="header">
-    <h1>📚 Kết quả dịch — {{ images|length }} ảnh</h1>
+    <div class="header-left">
+        <div class="header-logo">📚</div>
+        <span class="header-title">Kết quả dịch</span>
+        <span class="header-count">{{ images|length }} ảnh</span>
+    </div>
     <div class="header-actions">
-        <a href="/" class="btn btn-secondary">← Dịch thêm</a>
-        <button class="btn btn-primary" onclick="downloadAll()">⬇️ Tải tất cả (ZIP)</button>
+        <a href="/" class="btn btn-ghost">← Dịch thêm</a>
+        <button class="btn btn-primary" onclick="downloadAll()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M6.5 1v7M6.5 8L4 5.5M6.5 8L9 5.5M1.5 10.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Tải tất cả (ZIP)
+        </button>
     </div>
 </div>
 
@@ -169,18 +33,25 @@
     <div class="image-card">
         <div class="image-card-header">
             <span class="image-name">{{ img.name }}</span>
-            <button class="btn-download-single" onclick="downloadSingle('{{ img.name }}', '{{ img.data }}')">
-                ⬇️ Tải về
-            </button>
+            <div class="image-card-actions">
+                <button class="btn-sm" onclick="downloadSingle('{{ img.name }}', allImages[{{ loop.index0 }}].data)">
+                    ↓ Tải về
+                </button>
+            </div>
         </div>
         <div class="image-wrap" id="wrap-{{ img_idx }}">
             <img src="data:image/jpeg;base64,{{ img.data }}"
                  alt="{{ img.name }}"
-                 id="img-{{ img_idx }}">
+                 id="img-{{ img_idx }}"
+                 onload="scaleOverlaysForWrap({{ img_idx }})">
 
             {% if mode == "translate" %}
             {% for bubble in img.bubbles %}
             <div class="bubble-overlay"
+                 data-x1="{{ bubble.box[0] }}"
+                 data-y1="{{ bubble.box[1] }}"
+                 data-x2="{{ bubble.box[2] }}"
+                 data-y2="{{ bubble.box[3] }}"
                  style="left:{{ bubble.box[0] }}px; top:{{ bubble.box[1] }}px;
                         width:{{ bubble.box[2] - bubble.box[0] }}px;
                         height:{{ bubble.box[3] - bubble.box[1] }}px;"
@@ -198,64 +69,171 @@
 
 {% else %}
 <div class="empty-state">
+    <div class="empty-icon">🖼️</div>
     <p>Không có ảnh nào được xử lý</p>
-    <a href="/" class="btn btn-primary" style="display:inline-block; margin-top:16px;">← Quay lại</a>
+    <a href="/" class="btn btn-primary" style="text-decoration:none;">← Quay lại</a>
 </div>
 {% endif %}
 
 <!-- Edit Modal -->
-<div class="modal" id="editModal">
+<div class="modal-backdrop" id="editModal">
     <div class="modal-card">
-        <h3>✏️ Sửa bản dịch</h3>
-        <label>Bản dịch gốc</label>
-        <textarea id="originalText" readonly style="color:#888;"></textarea>
-        <label>Sửa lại</label>
-        <textarea id="editText"></textarea>
-        <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeEdit()">Hủy</button>
-            <button class="btn btn-primary" onclick="applyEdit()">✅ Cập nhật</button>
+        <div class="modal-header">
+            <span class="modal-title">✏️ Sửa bản dịch</span>
+            <button class="modal-close" onclick="closeEdit()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="field-label">Bản dịch gốc</div>
+            <textarea id="originalText" readonly></textarea>
+
+            <div class="field-label">Sửa lại</div>
+            <textarea id="editText"></textarea>
+
+            <!-- Font toolbar -->
+            <div class="font-toolbar">
+                <!-- Font family -->
+                <div class="toolbar-group" style="grid-column: span 2;">
+                    <div class="field-label">Font chữ</div>
+                    <select id="fontSelect">
+                        <option value="">— Mặc định —</option>
+                    </select>
+                </div>
+
+                <!-- Font size -->
+                <div class="toolbar-group">
+                    <div class="field-label">Cỡ chữ</div>
+                    <input type="number" id="fontSizeInput" value="20" min="8" max="120" step="1">
+                </div>
+
+                <!-- Color -->
+                <div class="toolbar-group" style="grid-column: span 2;">
+                    <div class="field-label">Màu chữ</div>
+                    <div class="color-row" id="colorRow">
+                        <div class="color-swatch active" style="background:#000000" data-color="#000000"></div>
+                        <div class="color-swatch" style="background:#ffffff; border:1.5px solid #444" data-color="#ffffff"></div>
+                        <div class="color-swatch" style="background:#f87171" data-color="#f87171"></div>
+                        <div class="color-swatch" style="background:#60a5fa" data-color="#60a5fa"></div>
+                        <div class="color-swatch" style="background:#4ade80" data-color="#4ade80"></div>
+                        <div class="color-custom" title="Chọn màu tùy chỉnh">
+                            <input type="color" id="colorCustom" value="#000000">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Style toggles -->
+                <div class="toolbar-group">
+                    <div class="field-label">Kiểu</div>
+                    <div class="style-toggles">
+                        <button type="button" class="style-btn" id="boldBtn" title="Bold"><b>B</b></button>
+                        <button type="button" class="style-btn" id="italicBtn" title="Italic"><i>I</i></button>
+                    </div>
+                </div>
+
+                <!-- Align -->
+                <div class="toolbar-group" style="grid-column: span 2;">
+                    <div class="field-label">Căn chỉnh</div>
+                    <div class="align-btns">
+                        <button type="button" class="align-btn active" data-align="center">⊟ Giữa</button>
+                        <button type="button" class="align-btn" data-align="left">⊟ Trái</button>
+                        <button type="button" class="align-btn" data-align="right">⊟ Phải</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeEdit()">Hủy</button>
+            <button class="btn btn-primary" onclick="applyEdit()" id="applyBtn">✓ Cập nhật</button>
         </div>
     </div>
 </div>
 
-<!-- Download form -->
 <form id="downloadForm" action="/download-zip" method="POST">
     <input type="hidden" name="images_data" id="imagesData">
 </form>
 
 <script>
-    // Lưu tất cả ảnh + data
     const allImages = {{ images | tojson }};
     let currentEdit = null;
+    let selectedColor = '#000000';
+    let selectedAlign = 'center';
+    let isBold = false;
+    let isItalic = false;
 
-    // Scale overlay theo kích thước thực của ảnh
-    function scaleOverlays() {
-        document.querySelectorAll('.image-wrap').forEach((wrap, i) => {
-            const img = wrap.querySelector('img');
-            const overlays = wrap.querySelectorAll('.bubble-overlay');
-            if (!overlays.length) return;
+    // Scale overlays
+    function scaleOverlaysForWrap(imgIdx) {
+        const wrap = document.getElementById('wrap-' + imgIdx);
+        const img  = document.getElementById('img-' + imgIdx);
+        const overlays = wrap.querySelectorAll('.bubble-overlay');
+        if (!overlays.length) return;
 
-            const scaleX = img.clientWidth / img.naturalWidth;
-            const scaleY = img.clientHeight / img.naturalHeight;
+        const scaleX = img.clientWidth / img.naturalWidth;
+        const scaleY = img.clientHeight / img.naturalHeight;
 
-            overlays.forEach(ov => {
-                const left = parseFloat(ov.getAttribute('data-x1') || ov.style.left);
-                const top = parseFloat(ov.getAttribute('data-y1') || ov.style.top);
-                const w = parseFloat(ov.getAttribute('data-w') || ov.style.width);
-                const h = parseFloat(ov.getAttribute('data-h') || ov.style.height);
-
-                ov.style.left = (left * scaleX) + 'px';
-                ov.style.top = (top * scaleY) + 'px';
-                ov.style.width = (w * scaleX) + 'px';
-                ov.style.height = (h * scaleY) + 'px';
-            });
+        overlays.forEach(ov => {
+            const x1 = parseFloat(ov.dataset.x1);
+            const y1 = parseFloat(ov.dataset.y1);
+            const x2 = parseFloat(ov.dataset.x2);
+            const y2 = parseFloat(ov.dataset.y2);
+            ov.style.left   = (x1 * scaleX) + 'px';
+            ov.style.top    = (y1 * scaleY) + 'px';
+            ov.style.width  = ((x2 - x1) * scaleX) + 'px';
+            ov.style.height = ((y2 - y1) * scaleY) + 'px';
         });
     }
 
-    window.addEventListener('resize', scaleOverlays);
-    window.addEventListener('load', scaleOverlays);
+    window.addEventListener('resize', () => {
+        document.querySelectorAll('.image-wrap').forEach((wrap, i) => {
+            scaleOverlaysForWrap(i + 1);
+        });
+    });
 
-    // Edit bubble
+    // Load fonts
+    fetch('/get-fonts').then(r => r.json()).then(fonts => {
+        const sel = document.getElementById('fontSelect');
+        fonts.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = f.replace(/\.(ttf|otf)$/i, '');
+            sel.appendChild(opt);
+        });
+    }).catch(() => {});
+
+    // Color swatches
+    document.querySelectorAll('.color-swatch').forEach(sw => {
+        sw.addEventListener('click', () => {
+            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+            sw.classList.add('active');
+            selectedColor = sw.dataset.color;
+        });
+    });
+
+    document.getElementById('colorCustom').addEventListener('input', e => {
+        selectedColor = e.target.value;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    });
+
+    // Bold / Italic
+    document.getElementById('boldBtn').addEventListener('click', () => {
+        isBold = !isBold;
+        document.getElementById('boldBtn').classList.toggle('active', isBold);
+    });
+
+    document.getElementById('italicBtn').addEventListener('click', () => {
+        isItalic = !isItalic;
+        document.getElementById('italicBtn').classList.toggle('active', isItalic);
+    });
+
+    // Align
+    document.querySelectorAll('.align-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedAlign = btn.dataset.align;
+        });
+    });
+
+    // Open edit modal
     function openEdit(imgIdx, bubbleIdx, translated, x1, y1, x2, y2) {
         currentEdit = { imgIdx, bubbleIdx, x1, y1, x2, y2 };
         document.getElementById('originalText').value = translated;
@@ -268,30 +246,54 @@
         currentEdit = null;
     }
 
+    // Close on backdrop click
+    document.getElementById('editModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('editModal')) closeEdit();
+    });
+
+    // Apply edit
     async function applyEdit() {
         if (!currentEdit) return;
-        const newText = document.getElementById('editText').value.trim();
+        const applyBtn = document.getElementById('applyBtn');
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Đang xử lý...';
+
+        const newText  = document.getElementById('editText').value.trim();
+        const fontName = document.getElementById('fontSelect').value || 'ariali.ttf';
+        const fontSize = parseInt(document.getElementById('fontSizeInput').value) || 20;
         const { imgIdx, x1, y1, x2, y2 } = currentEdit;
         const imgData = allImages[imgIdx - 1].data;
 
-        // Gửi lên server để re-render
-        const res = await fetch('/rerender', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imgData, x1, y1, x2, y2, text: newText })
-        });
+        try {
+            const res = await fetch('/rerender', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: imgData, x1, y1, x2, y2,
+                    text: newText,
+                    font_name: fontName,
+                    font_size: fontSize,
+                    font_color: selectedColor,
+                    bold: isBold,
+                    italic: isItalic,
+                    align: selectedAlign
+                })
+            });
 
-        const data = await res.json();
-
-        // Cập nhật ảnh
-        const imgEl = document.getElementById(`img-${imgIdx}`);
-        imgEl.src = 'data:image/jpeg;base64,' + data.image;
-        allImages[imgIdx - 1].data = data.image;
-
-        closeEdit();
+            const data = await res.json();
+            const imgEl = document.getElementById(`img-${imgIdx}`);
+            imgEl.src = 'data:image/jpeg;base64,' + data.image;
+            allImages[imgIdx - 1].data = data.image;
+            closeEdit();
+        } catch (err) {
+            console.error(err);
+            alert('Lỗi khi cập nhật ảnh.');
+        } finally {
+            applyBtn.disabled = false;
+            applyBtn.textContent = '✓ Cập nhật';
+        }
     }
 
-    // Download 1 ảnh
     function downloadSingle(name, data) {
         const link = document.createElement('a');
         link.href = 'data:image/jpeg;base64,' + data;
@@ -299,11 +301,25 @@
         link.click();
     }
 
-    // Download tất cả ZIP
-    function downloadAll() {
-        document.getElementById('imagesData').value = JSON.stringify(allImages);
-        document.getElementById('downloadForm').submit();
+    async function downloadAll() {
+    try {
+        const res = await fetch('/download-zip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: allImages })
+        });
+        if (!res.ok) throw new Error('Server error');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'manga_translated.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        alert('Lỗi tải ZIP: ' + err.message);
     }
+}
 </script>
 </body>
 </html>
