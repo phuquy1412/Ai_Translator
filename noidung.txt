@@ -1,0 +1,50 @@
+MÔ TẢ CHI TIẾT DỰ ÁN: AI MANGA TRANSLATOR
+
+1. Mô tả ứng dụng (Demo)
+--------------------------------------------------
+AI Manga Translator là một ứng dụng Web tự động hóa hoàn toàn quy trình dịch thuật truyện tranh (Manga, Manhua, Manhwa, Comic) từ các ngôn ngữ gốc (Nhật, Hàn, Trung, Anh) sang tiếng Việt. 
+Khi người dùng tải lên một hoặc nhiều trang truyện, ứng dụng sẽ tự động chạy quy trình: 
+- Phát hiện và khoanh vùng các bong bóng thoại (Speech bubbles).
+- Xóa chữ gốc bên trong bong bóng mà không làm hỏng nền tranh (Inpainting/Masking).
+- Đọc và trích xuất chữ trong bong bóng (OCR).
+- Dịch thuật sang tiếng Việt với văn phong truyện tranh, giữ đúng ngữ cảnh.
+- Tự động canh lề và vẽ lại chữ tiếng Việt vào đúng vị trí bong bóng thoại.
+Người dùng có thể xem tiến trình trực tiếp, sau đó có thể chỉnh sửa lại text (kích cỡ, màu sắc, font chữ) thông qua Web Editor và tải toàn bộ kết quả về dưới dạng file .zip.
+
+2. Mô tả về các mô hình AI sử dụng (Định nghĩa T-P-E)
+--------------------------------------------------
+Dự án kết hợp nhiều mô hình AI, trong đó cốt lõi nhất là 2 mô hình: Mô hình Thị giác máy tính (YOLOv8) để nhận diện bong bóng thoại và Mô hình Ngôn ngữ Lớn (LLMs - Gemini/Gemma) để dịch thuật.
+
+A. Mô hình Nhận diện bong bóng thoại (YOLOv8 - comic.pt)
+- T (Task - Nhiệm vụ): Phát hiện, định vị và khoanh vùng (bounding boxes) chính xác vị trí của các bong bóng thoại chứa chữ trên một trang truyện tranh.
+- P (Performance - Hiệu suất/Đánh giá): Được đo lường bằng chỉ số mAP (mean Average Precision) hoặc IoU (Intersection over Union - tỷ lệ phần giao thoa so với phần hợp của vùng dự đoán và vùng thực tế). Hiệu suất cao khi AI khoanh đúng, không lẹm vào chi tiết thừa.
+- E (Experience - Dữ liệu huấn luyện): Hàng ngàn hoặc hàng chục ngàn hình ảnh các trang truyện tranh đa dạng thể loại đã được con người đánh dấu (gán nhãn tọa độ) thủ công vị trí các bong bóng thoại.
+
+B. Mô hình AI Dịch thuật (Google Gemini 2.5 Flash / Local LLM TranslateGemma 4b)
+- T (Task - Nhiệm vụ): Dịch nội dung (văn bản được trích xuất hoặc hình ảnh vùng chữ) từ ngôn ngữ nước ngoài sang tiếng Việt. Phải dịch thoát ý, giữ đúng văn phong, cảm xúc nhân vật và bối cảnh hành động (không dịch word-by-word).
+- P (Performance - Hiệu suất/Đánh giá): Mức độ tự nhiên của câu từ, điểm BLEU/ROUGE đối với dữ liệu dịch tham chiếu, và tỷ lệ không bị từ chối bởi các bộ lọc an toàn (Safety Settings) khi xử lý các từ lóng hay hội thoại bạo lực.
+- E (Experience - Dữ liệu huấn luyện): Bộ dữ liệu văn bản khổng lồ đa ngôn ngữ (Corpus) từ Internet, tài liệu song ngữ, truyện tranh... kết hợp với các chỉ thị đặc biệt (System Prompts) như: "Bạn là chuyên gia dịch manga...", "Dịch sát nghĩa, tự nhiên..." được lập trình viên mớm vào.
+
+3. Cách tích hợp AI vào ứng dụng
+--------------------------------------------------
+Ứng dụng được xây dựng trên nền tảng Python (Flask Web Framework), tích hợp AI thông qua luồng xử lý (pipeline) liền mạch:
+
+Bước 1: Tích hợp AI Nhận diện vùng chữ (YOLOv8)
+- Sử dụng thư viện `ultralytics`, load file trọng số mô hình `model/comic.pt`.
+- Ảnh do người dùng upload được đọc bằng OpenCV (`cv2`) và đẩy vào mô hình YOLO. Output trả về là mảng tọa độ [x1, y1, x2, y2] của từng bong bóng.
+
+Bước 2: Tích hợp AI Trích xuất văn bản (OCR)
+- Ứng dụng cắt (crop) các vùng bong bóng từ tọa độ có được, sau đó sử dụng thư viện `chrome_lens_py` để gọi API của Google Lens đọc văn bản trong ảnh cắt (hỗ trợ đọc cực tốt tiếng Nhật dọc chữ).
+
+Bước 3: Tích hợp AI Dịch thuật (LLM Integration)
+- Hệ thống cho phép người dùng chọn 2 phương thức AI:
+  + Tích hợp qua Cloud API (Gemini): Sử dụng SDK `google-generativeai`. Code gửi kèm System Prompt mạnh mẽ ép model hóa thân thành "Biên dịch viên manga", tuỳ chỉnh tắt hoàn toàn bộ lọc an toàn (SAFETY_OFF) để không bị block nội dung. Tính năng dịch theo lô (Batch Translation) và gửi trực tiếp ảnh (Vision) giúp giảm thiểu số lần call API.
+  + Tích hợp qua Local API (Ollama): Sử dụng thư viện `requests` gọi HTTP POST đến `http://localhost:11434/v1/chat/completions`. Gửi Prompt trực tiếp qua môi trường local (chạy model translategemma:4b), tận dụng Context Memory để mô hình nhớ ngữ cảnh câu trước, đảm bảo an toàn dữ liệu và vượt hoàn toàn kiểm duyệt.
+  
+Bước 4: Tích hợp AI Xử lý Ảnh (Tái cấu trúc và Render)
+- OpenCV tạo mặt nạ (Masking) và chạy thuật toán xóa chữ gốc nền trắng.
+- Thư viện `Pillow` (PIL) đo đạc kích thước vùng trống, tự động chia dòng chữ đã dịch (Word wrap) và vẽ chữ đè lên ảnh với các font chữ được nạp từ thư mục `fonts/`.
+
+Bước 5: Trả kết quả lên Web
+- Sử dụng Flask-SocketIO kết hợp vòng lặp `tqdm` để bắt sự kiện tiến trình thực thi của các khối AI, từ đó đẩy thanh phần trăm (Progress Bar) theo thời gian thực (Real-time) hiển thị cho người dùng.
+- Render ảnh dưới dạng Base64 gửi về Frontend.

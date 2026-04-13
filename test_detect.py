@@ -43,4 +43,4 @@ def detect_bubbles_simple(image_path, model_path):
     print("Da luu result.png")
     return boxes
 
-detect_bubbles_simple("examples/2.png", "yolov8n.pt")
+detect_bubbles_simple("examples/1.webp", "model/model.pt")

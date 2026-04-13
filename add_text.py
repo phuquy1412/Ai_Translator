@@ -39,7 +39,7 @@ def ve_chu_vao_bubble(image, x1, y1, x2, y2, text):
     font_size = max(10, bubble_width // 10)
 
     try:
-        font = ImageFont.truetype("fonts/ariali.ttf", font_size)
+        font = ImageFont.truetype("fonts/animeace_i.ttf", font_size)
     except:
         font = ImageFont.load_default()
 
